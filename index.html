@@ -2,15 +2,16 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Pac-Man Improved</title>
+  <title>Pac-Man 横長ステージ版</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <h1>Pac-Man（横長ステージ版）</h1>
   <div id="info">矢印キーで1マス移動。ゴーストは自動で動きます。</div>
 
-  <!-- 高さを 496 → 240 に変更 -->
-  <canvas id="game" width="448" height="240"></canvas>
+  <!-- TILE=24, COLS=28, ROWS=15 → 672 × 360 -->
+  <canvas id="game" width="672" height="360"></canvas>
+
   <div id="message"></div>
 
   <script src="js/map.js"></script>
