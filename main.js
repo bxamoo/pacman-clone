@@ -59,11 +59,14 @@ const pac = {
 
 // ===== ゴースト =====
 const ghosts = [
-  { x: 13, y: 14, color: "red",    dirX: 1, dirY: 0 },
-  { x: 14, y: 14, color: "pink",   dirX: -1, dirY: 0 },
-  { x: 13, y: 15, color: "cyan",   dirX: 0, dirY: 1 },
-  { x: 14, y: 15, color: "orange", dirX: 0, dirY: -1 }
+  { x: 13, y: 14, color: "red",    dirX: 1, dirY: 0, progress: 0 },
+  { x: 14, y: 14, color: "pink",   dirX: -1, dirY: 0, progress: 0 },
+  { x: 13, y: 15, color: "cyan",   dirX: 0, dirY: 1, progress: 0 },
+  { x: 14, y: 15, color: "orange", dirX: 0, dirY: -1, progress: 0 }
 ];
+
+// 1マス移動にかける時間（秒）
+const GHOST_SPEED = 0.25;
 
 let score = 0;
 let gameOver = false;
@@ -97,37 +100,40 @@ function movePac(dx, dy) {
   }
 }
 
-// ===== ゴースト自動移動（毎フレーム） =====
-function autoMoveGhost(g) {
-  const nx = g.x + g.dirX;
-  const ny = g.y + g.dirY;
+// ===== ゴーストの方向決定（交差点でのみ） =====
+function chooseGhostDirection(g) {
+  const dirs = [
+    { x: g.dirX, y: g.dirY }, // 直進を最優先
+    { x: g.dirY, y: -g.dirX }, // 右折
+    { x: -g.dirY, y: g.dirX }, // 左折
+    { x: -g.dirX, y: -g.dirY } // 後退（最後）
+  ];
 
-  // 進行方向が壁 → 別方向を探す
-  if (isWall(nx, ny)) {
-    const dirs = [
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 }
-    ];
-
-    // ランダムに方向を混ぜる
-    dirs.sort(() => Math.random() - 0.5);
-
-    for (let d of dirs) {
-      const tx = g.x + d.x;
-      const ty = g.y + d.y;
-      if (!isWall(tx, ty)) {
-        g.dirX = d.x;
-        g.dirY = d.y;
-        break;
-      }
+  for (let d of dirs) {
+    const nx = g.x + d.x;
+    const ny = g.y + d.y;
+    if (!isWall(nx, ny)) {
+      g.dirX = d.x;
+      g.dirY = d.y;
+      return;
     }
   }
+}
 
-  // 移動
-  g.x += g.dirX;
-  g.y += g.dirY;
+// ===== ゴースト自動移動（アニメーション付き） =====
+function updateGhost(g, dt) {
+  g.progress += dt;
+
+  if (g.progress >= GHOST_SPEED) {
+    g.progress -= GHOST_SPEED;
+
+    // タイル中心に到達 → 方向決定
+    chooseGhostDirection(g);
+
+    // 1マス進む
+    g.x += g.dirX;
+    g.y += g.dirY;
+  }
 }
 
 // ===== 衝突判定 =====
@@ -191,7 +197,7 @@ function draw() {
 
 // ===== キー入力 =====
 window.addEventListener("keydown", e => {
-  e.preventDefault(); // スクロール防止
+  e.preventDefault();
 
   if (gameOver || win) {
     if (e.key === "Enter") location.reload();
@@ -204,10 +210,14 @@ window.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") movePac(1, 0);
 });
 
-// ===== メインループ（ゴースト自動移動） =====
-function loop() {
+// ===== メインループ =====
+let last = 0;
+function loop(t) {
+  const dt = (t - last) / 1000;
+  last = t;
+
   if (!gameOver && !win) {
-    ghosts.forEach(autoMoveGhost);
+    ghosts.forEach(g => updateGhost(g, dt));
     checkCollision();
   }
 
@@ -216,4 +226,4 @@ function loop() {
 }
 
 draw();
-loop();
+requestAnimationFrame(loop);
