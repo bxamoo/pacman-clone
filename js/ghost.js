@@ -1,5 +1,4 @@
 // ===== ゴースト定義 =====
-// ゴーストハウス中央に配置
 const ghosts = [
   { x: 13, y: 7, color: "red",    dirX: 1, dirY: 0, progress: 0 },
   { x: 14, y: 7, color: "pink",   dirX: -1, dirY: 0, progress: 0 },
@@ -14,6 +13,7 @@ function isWall(x, y) {
   return map[y][x] === 1;
 }
 
+// プレイヤー方向をざっくり意識した方向選択
 function chooseGhostDirection(g) {
   const px = pac.x;
   const py = pac.y;
@@ -25,12 +25,14 @@ function chooseGhostDirection(g) {
     { x: 0, y: -1 }
   ];
 
+  // プレイヤーに近づく順にソート
   dirs.sort((a, b) => {
     const da = Math.hypot(px - (g.x + a.x), py - (g.y + a.y));
     const db = Math.hypot(px - (g.x + b.x), py - (g.y + b.y));
     return da - db;
   });
 
+  // ランダム性を少し入れる
   if (Math.random() < 0.2) dirs.reverse();
 
   for (let d of dirs) {
@@ -55,16 +57,30 @@ function updateGhost(g, dt) {
     g.x += g.dirX;
     g.y += g.dirY;
 
+    // トンネル処理
     if (g.x < -1) g.x = COLS;
     if (g.x > COLS) g.x = -1;
   }
 }
 
+// ===== 衝突判定（ライフ制） =====
 function checkGhostCollision() {
   for (let g of ghosts) {
     if (g.x === pac.x && g.y === pac.y) {
-      gameOver = true;
-      messageEl.textContent = "ゲームオーバー！ Enterで再スタート";
+
+      lives--;
+
+      if (lives <= 0) {
+        gameOver = true;
+        messageEl.textContent = "ゲームオーバー！ Enterで再スタート";
+        return;
+      }
+
+      // プレイヤーをスタート地点に戻す
+      pac.x = pacStart.x;
+      pac.y = pacStart.y;
+
+      messageEl.textContent = `ぶつかった！ 残りライフ：${lives}`;
     }
   }
 }
