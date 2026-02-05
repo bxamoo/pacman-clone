@@ -3,10 +3,11 @@ const ctx = canvas.getContext("2d");
 const messageEl = document.getElementById("message");
 
 // ===== プレイヤー初期位置 =====
-// ステージ下部中央に配置
-const pac = { x: 13, y: 12 };
+const pacStart = { x: 13, y: 12 };
+const pac = { x: pacStart.x, y: pacStart.y };
 
 let score = 0;
+let lives = 5;     // ← ライフ制
 let gameOver = false;
 let win = false;
 
@@ -56,11 +57,13 @@ function draw() {
     }
   }
 
+  // パックマン
   ctx.fillStyle = "#ffeb00";
   ctx.beginPath();
   ctx.arc(pac.x * TILE + TILE/2, pac.y * TILE + TILE/2, TILE/2 - 2, 0, Math.PI * 2);
   ctx.fill();
 
+  // ゴースト
   ghosts.forEach(g => {
     ctx.fillStyle = g.color;
     ctx.beginPath();
@@ -69,9 +72,11 @@ function draw() {
     ctx.fill();
   });
 
+  // スコア & ライフ
   ctx.fillStyle = "#fff";
-  ctx.font = "16px system-ui";
-  ctx.fillText("SCORE: " + score, 8, 20);
+  ctx.font = "18px system-ui";
+  ctx.fillText(`SCORE: ${score}`, 8, 20);
+  ctx.fillText(`LIVES: ${lives}`, 8, 40);
 }
 
 window.addEventListener("keydown", e => {
