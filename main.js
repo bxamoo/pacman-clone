@@ -59,10 +59,10 @@ const pac = {
 
 // ===== ゴースト =====
 const ghosts = [
-  { x: 13, y: 14, color: "red" },
-  { x: 14, y: 14, color: "pink" },
-  { x: 13, y: 15, color: "cyan" },
-  { x: 14, y: 15, color: "orange" }
+  { x: 13, y: 14, color: "red",    dirX: 1, dirY: 0 },
+  { x: 14, y: 14, color: "pink",   dirX: -1, dirY: 0 },
+  { x: 13, y: 15, color: "cyan",   dirX: 0, dirY: 1 },
+  { x: 14, y: 15, color: "orange", dirX: 0, dirY: -1 }
 ];
 
 let score = 0;
@@ -97,27 +97,37 @@ function movePac(dx, dy) {
   }
 }
 
-// ===== ゴースト移動（1マス） =====
-function moveGhost(g) {
-  const dirs = [
-    { x: 1, y: 0 },
-    { x: -1, y: 0 },
-    { x: 0, y: 1 },
-    { x: 0, y: -1 }
-  ];
+// ===== ゴースト自動移動（毎フレーム） =====
+function autoMoveGhost(g) {
+  const nx = g.x + g.dirX;
+  const ny = g.y + g.dirY;
 
-  // ランダムに方向を混ぜる
-  dirs.sort(() => Math.random() - 0.5);
+  // 進行方向が壁 → 別方向を探す
+  if (isWall(nx, ny)) {
+    const dirs = [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 }
+    ];
 
-  for (let d of dirs) {
-    const nx = g.x + d.x;
-    const ny = g.y + d.y;
-    if (!isWall(nx, ny)) {
-      g.x = nx;
-      g.y = ny;
-      return;
+    // ランダムに方向を混ぜる
+    dirs.sort(() => Math.random() - 0.5);
+
+    for (let d of dirs) {
+      const tx = g.x + d.x;
+      const ty = g.y + d.y;
+      if (!isWall(tx, ty)) {
+        g.dirX = d.x;
+        g.dirY = d.y;
+        break;
+      }
     }
   }
+
+  // 移動
+  g.x += g.dirX;
+  g.y += g.dirY;
 }
 
 // ===== 衝突判定 =====
@@ -181,7 +191,7 @@ function draw() {
 
 // ===== キー入力 =====
 window.addEventListener("keydown", e => {
-  e.preventDefault(); // ← スクロール防止
+  e.preventDefault(); // スクロール防止
 
   if (gameOver || win) {
     if (e.key === "Enter") location.reload();
@@ -192,13 +202,18 @@ window.addEventListener("keydown", e => {
   if (e.key === "ArrowDown") movePac(0, 1);
   if (e.key === "ArrowLeft") movePac(-1, 0);
   if (e.key === "ArrowRight") movePac(1, 0);
-
-  // ゴーストも1マス動く
-  ghosts.forEach(moveGhost);
-
-  checkCollision();
-  draw();
 });
 
-// 初期描画
+// ===== メインループ（ゴースト自動移動） =====
+function loop() {
+  if (!gameOver && !win) {
+    ghosts.forEach(autoMoveGhost);
+    checkCollision();
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
 draw();
+loop();
