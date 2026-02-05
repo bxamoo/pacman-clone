@@ -3,13 +3,12 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const messageEl = document.getElementById("message");
 
-const TILE_SIZE = 16;
+const TILE = 16;
 const COLS = 28;
 const ROWS = 31;
 
-// マップ定義
-// 0: 通路, 1: 壁, 2: ドット, 3: パワーエサ（今回はスコア用のみ）
-const baseLevel = [
+// ===== マップ定義 =====
+const baseMap = [
   "1111111111111111111111111111",
   "1222222222111222222222222221",
   "1211112112111211112112111121",
@@ -41,244 +40,92 @@ const baseLevel = [
   "1211111111111211111111111121",
   "1222222222222222222222222221",
   "1111111111111111111111111111"
-].map(row => row.split("").map(Number));
+].map(r => r.split("").map(Number));
 
-const level = baseLevel.map(row => row.slice());
+let map = baseMap.map(r => r.slice());
 
-// ドット配置（0の通路にもドットを置きたいので加工）
-for (let r = 0; r < ROWS; r++) {
-  for (let c = 0; c < COLS; c++) {
-    if (level[r][c] === 0) {
-      level[r][c] = 2; // 通路をドットありに
-    }
+// 通路(0)をドット(2)に変換
+for (let y = 0; y < ROWS; y++) {
+  for (let x = 0; x < COLS; x++) {
+    if (map[y][x] === 0) map[y][x] = 2;
   }
 }
 
-// ===== プレイヤー（パックマン） =====
-const pacman = {
+// ===== プレイヤー =====
+const pac = {
   x: 13,
-  y: 23,
-  dirX: 0,
-  dirY: 0,
-  nextDirX: 0,
-  nextDirY: 0,
-  speed: 0.1,
-  angle: 0
+  y: 23
 };
 
 // ===== ゴースト =====
 const ghosts = [
-  { x: 13, y: 14, dirX: 1, dirY: 0, color: "red",    speed: 0.09 },
-  { x: 14, y: 14, dirX: -1, dirY: 0, color: "pink",   speed: 0.085 },
-  { x: 13, y: 15, dirX: 0, dirY: 1, color: "cyan",    speed: 0.08 },
-  { x: 14, y: 15, dirX: 0, dirY: -1, color: "orange", speed: 0.08 }
+  { x: 13, y: 14, color: "red" },
+  { x: 14, y: 14, color: "pink" },
+  { x: 13, y: 15, color: "cyan" },
+  { x: 14, y: 15, color: "orange" }
 ];
 
 let score = 0;
-let dotsTotal = 0;
 let gameOver = false;
 let win = false;
 
-// ドット総数カウント
-for (let r = 0; r < ROWS; r++) {
-  for (let c = 0; c < COLS; c++) {
-    if (level[r][c] === 2 || level[r][c] === 3) dotsTotal++;
-  }
-}
-
-// ===== 入力 =====
-window.addEventListener("keydown", e => {
-  if (gameOver || win) {
-    if (e.key === "Enter") {
-      resetGame();
-    }
-    return;
-  }
-  switch (e.key) {
-    case "ArrowUp":
-      pacman.nextDirX = 0; pacman.nextDirY = -1;
-      break;
-    case "ArrowDown":
-      pacman.nextDirX = 0; pacman.nextDirY = 1;
-      break;
-    case "ArrowLeft":
-      pacman.nextDirX = -1; pacman.nextDirY = 0;
-      break;
-    case "ArrowRight":
-      pacman.nextDirX = 1; pacman.nextDirY = 0;
-      break;
-  }
-});
-
-// ===== ユーティリティ =====
+// ===== 壁判定 =====
 function isWall(x, y) {
-  const cx = Math.round(x);
-  const cy = Math.round(y);
-  if (cy < 0 || cy >= ROWS || cx < 0 || cx >= COLS) return true;
-  return level[cy][cx] === 1;
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return true;
+  return map[y][x] === 1;
 }
 
+// ===== ドットを食べる =====
 function eatDot(x, y) {
-  const cx = Math.round(x);
-  const cy = Math.round(y);
-  if (cy < 0 || cy >= ROWS || cx < 0 || cx >= COLS) return;
-  if (level[cy][cx] === 2) {
-    level[cy][cx] = 0;
+  if (map[y][x] === 2) {
+    map[y][x] = 0;
     score += 10;
-    dotsTotal--;
-  } else if (level[cy][cx] === 3) {
-    level[cy][cx] = 0;
-    score += 50;
-    dotsTotal--;
-  }
-  if (dotsTotal <= 0 && !win) {
-    win = true;
-    messageEl.textContent = "クリア！ Enterキーでリスタート";
   }
 }
 
-function resetGame() {
-  // マップを再生成
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const v = baseLevel[r][c];
-      level[r][c] = (v === 0) ? 2 : v;
-    }
+// ===== プレイヤー移動（1マス） =====
+function movePac(dx, dy) {
+  if (gameOver || win) return;
+
+  const nx = pac.x + dx;
+  const ny = pac.y + dy;
+
+  if (!isWall(nx, ny)) {
+    pac.x = nx;
+    pac.y = ny;
+    eatDot(nx, ny);
   }
-
-  dotsTotal = 0;
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (level[r][c] === 2 || level[r][c] === 3) dotsTotal++;
-    }
-  }
-
-  pacman.x = 13;
-  pacman.y = 23;
-  pacman.dirX = 0;
-  pacman.dirY = 0;
-  pacman.nextDirX = 0;
-  pacman.nextDirY = 0;
-
-  ghosts[0].x = 13; ghosts[0].y = 14; ghosts[0].dirX = 1;  ghosts[0].dirY = 0;
-  ghosts[1].x = 14; ghosts[1].y = 14; ghosts[1].dirX = -1; ghosts[1].dirY = 0;
-  ghosts[2].x = 13; ghosts[2].y = 15; ghosts[2].dirX = 0;  ghosts[2].dirY = 1;
-  ghosts[3].x = 14; ghosts[3].y = 15; ghosts[3].dirX = 0;  ghosts[3].dirY = -1;
-
-  score = 0;
-  gameOver = false;
-  win = false;
-  messageEl.textContent = "";
 }
 
-// ===== 更新処理 =====
-let lastTime = 0;
-function update(timestamp) {
-  const dt = (timestamp - lastTime) / 16.67; // 60fps基準
-  lastTime = timestamp;
+// ===== ゴースト移動（1マス） =====
+function moveGhost(g) {
+  const dirs = [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 }
+  ];
 
-  if (!gameOver && !win) {
-    updatePacman(dt);
-    updateGhosts(dt);
-    checkCollisions();
+  // ランダムに方向を混ぜる
+  dirs.sort(() => Math.random() - 0.5);
+
+  for (let d of dirs) {
+    const nx = g.x + d.x;
+    const ny = g.y + d.y;
+    if (!isWall(nx, ny)) {
+      g.x = nx;
+      g.y = ny;
+      return;
+    }
   }
-
-  draw();
-  requestAnimationFrame(update);
 }
 
-function updatePacman(dt) {
-  // 次の方向に曲がれるかチェック（タイル中心付近でのみ）
-  const nearCenterX = Math.abs(pacman.x - Math.round(pacman.x)) < 0.15;
-  const nearCenterY = Math.abs(pacman.y - Math.round(pacman.y)) < 0.15;
-  if (nearCenterX && nearCenterY) {
-    const targetX = Math.round(pacman.x) + pacman.nextDirX;
-    const targetY = Math.round(pacman.y) + pacman.nextDirY;
-    if (!isWall(targetX, targetY)) {
-      pacman.dirX = pacman.nextDirX;
-      pacman.dirY = pacman.nextDirY;
-    }
-  }
-
-  // 移動
-  let newX = pacman.x + pacman.dirX * pacman.speed * dt;
-  let newY = pacman.y + pacman.dirY * pacman.speed * dt;
-
-  // トンネル（左右端）
-  if (newX < -1) newX = COLS;
-  if (newX > COLS) newX = -1;
-
-  if (!isWall(newX, pacman.y)) {
-    pacman.x = newX;
-  }
-  if (!isWall(pacman.x, newY)) {
-    pacman.y = newY;
-  }
-
-  // ドットを食べる
-  eatDot(pacman.x, pacman.y);
-
-  // 口パク用
-  pacman.angle += 0.2 * dt;
-}
-
-function updateGhosts(dt) {
-  ghosts.forEach(g => {
-    // タイル中心付近でランダム＋追尾気味に方向転換
-    const nearCenterX = Math.abs(g.x - Math.round(g.x)) < 0.15;
-    const nearCenterY = Math.abs(g.y - Math.round(g.y)) < 0.15;
-    if (nearCenterX && nearCenterY) {
-      const dirs = [
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 }
-      ];
-      // パックマンに少し寄るようにソート
-      dirs.sort((a, b) => {
-        const ax = Math.round(g.x) + a.x;
-        const ay = Math.round(g.y) + a.y;
-        const bx = Math.round(g.x) + b.x;
-        const by = Math.round(g.y) + b.y;
-        const da = Math.hypot(pacman.x - ax, pacman.y - ay);
-        const db = Math.hypot(pacman.x - bx, pacman.y - by);
-        return da - db;
-      });
-
-      for (let d of dirs) {
-        const tx = Math.round(g.x) + d.x;
-        const ty = Math.round(g.y) + d.y;
-        if (!isWall(tx, ty) && !(d.x === -g.dirX && d.y === -g.dirY)) {
-          g.dirX = d.x;
-          g.dirY = d.y;
-          break;
-        }
-      }
-    }
-
-    let newX = g.x + g.dirX * g.speed * dt;
-    let newY = g.y + g.dirY * g.speed * dt;
-
-    // トンネル
-    if (newX < -1) newX = COLS;
-    if (newX > COLS) newX = -1;
-
-    if (!isWall(newX, g.y)) {
-      g.x = newX;
-    }
-    if (!isWall(g.x, newY)) {
-      g.y = newY;
-    }
-  });
-}
-
-function checkCollisions() {
+// ===== 衝突判定 =====
+function checkCollision() {
   for (let g of ghosts) {
-    const dist = Math.hypot(pacman.x - g.x, pacman.y - g.y);
-    if (dist < 0.6) {
+    if (g.x === pac.x && g.y === pac.y) {
       gameOver = true;
-      messageEl.textContent = "ゲームオーバー… Enterキーでリスタート";
-      break;
+      messageEl.textContent = "ゲームオーバー！ Enterで再スタート";
     }
   }
 }
@@ -288,27 +135,23 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // マップ
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const tile = level[r][c];
-      const x = c * TILE_SIZE;
-      const y = r * TILE_SIZE;
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const v = map[y][x];
+      const px = x * TILE;
+      const py = y * TILE;
 
-      if (tile === 1) {
+      if (v === 1) {
         ctx.fillStyle = "#0011aa";
-        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        ctx.fillRect(px, py, TILE, TILE);
       } else {
         ctx.fillStyle = "#000";
-        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        if (tile === 2) {
+        ctx.fillRect(px, py, TILE, TILE);
+
+        if (v === 2) {
           ctx.fillStyle = "#ffb8ae";
           ctx.beginPath();
-          ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 2, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (tile === 3) {
-          ctx.fillStyle = "#ffffff";
-          ctx.beginPath();
-          ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 4, 0, Math.PI * 2);
+          ctx.arc(px + 8, py + 8, 2, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -316,52 +159,17 @@ function draw() {
   }
 
   // パックマン
-  const px = pacman.x * TILE_SIZE + TILE_SIZE / 2;
-  const py = pacman.y * TILE_SIZE + TILE_SIZE / 2;
-  const mouth = (Math.sin(pacman.angle) + 1) / 4 + 0.1; // 0.1〜0.6くらい
-  let dirAngle = 0;
-  if (pacman.dirX === 1) dirAngle = 0;
-  else if (pacman.dirX === -1) dirAngle = Math.PI;
-  else if (pacman.dirY === -1) dirAngle = -Math.PI / 2;
-  else if (pacman.dirY === 1) dirAngle = Math.PI / 2;
-
   ctx.fillStyle = "#ffeb00";
   ctx.beginPath();
-  ctx.moveTo(px, py);
-  ctx.arc(
-    px,
-    py,
-    TILE_SIZE / 2 - 1,
-    dirAngle + mouth * Math.PI,
-    dirAngle - mouth * Math.PI,
-    false
-  );
-  ctx.closePath();
+  ctx.arc(pac.x * TILE + 8, pac.y * TILE + 8, 7, 0, Math.PI * 2);
   ctx.fill();
 
   // ゴースト
   ghosts.forEach(g => {
-    const gx = g.x * TILE_SIZE + TILE_SIZE / 2;
-    const gy = g.y * TILE_SIZE + TILE_SIZE / 2;
-    const w = TILE_SIZE - 2;
-    const h = TILE_SIZE - 2;
-
     ctx.fillStyle = g.color;
     ctx.beginPath();
-    ctx.arc(gx, gy - h * 0.1, w / 2, Math.PI, 0);
-    ctx.rect(gx - w / 2, gy - h * 0.1, w, h * 0.6);
-    ctx.fill();
-
-    // 目
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(gx - 3, gy - 3, 3, 0, Math.PI * 2);
-    ctx.arc(gx + 3, gy - 3, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.arc(gx - 3, gy - 3, 1.5, 0, Math.PI * 2);
-    ctx.arc(gx + 3, gy - 3, 1.5, 0, Math.PI * 2);
+    ctx.arc(g.x * TILE + 8, g.y * TILE + 8, 7, Math.PI, 0);
+    ctx.rect(g.x * TILE + 1, g.y * TILE + 8, 14, 8);
     ctx.fill();
   });
 
@@ -371,6 +179,26 @@ function draw() {
   ctx.fillText("SCORE: " + score, 8, 16);
 }
 
-// スタート
-resetGame();
-requestAnimationFrame(update);
+// ===== キー入力 =====
+window.addEventListener("keydown", e => {
+  e.preventDefault(); // ← スクロール防止
+
+  if (gameOver || win) {
+    if (e.key === "Enter") location.reload();
+    return;
+  }
+
+  if (e.key === "ArrowUp") movePac(0, -1);
+  if (e.key === "ArrowDown") movePac(0, 1);
+  if (e.key === "ArrowLeft") movePac(-1, 0);
+  if (e.key === "ArrowRight") movePac(1, 0);
+
+  // ゴーストも1マス動く
+  ghosts.forEach(moveGhost);
+
+  checkCollision();
+  draw();
+});
+
+// 初期描画
+draw();
